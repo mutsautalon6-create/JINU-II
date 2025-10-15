@@ -1,41 +1,57 @@
 
 const axios = require('axios');
 const yts = require('yt-search');
-const fs = require('fs');
-const path = require('path');
-const { exec} = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
 
-const channelInfo = {
-    contextInfo: {
-        forwardingScore: 999,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-            newsletterJid: '120363422020175323@newsletter.whatsapp.net',
-            newsletterName: 'ᴊɪɴᴜ-ɪɪ',
-            serverMessageId: -1
-}
+// 🌸 Izumi API Configuration
+const izumi = {
+    baseURL: "https://izumiiiiiiii.dpdns.org"
+};
+
+// 🌸 Axios Defaults
+const AXIOS_DEFAULTS = {
+    timeout: 60000,
+    headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*'
 }
 };
 
-const princeVideoApi = {
-    base: 'https://api.princetechn.com/api/download/ytmp4',
-    apikey: process.env.PRINCE_API_KEY || 'prince',
-    async fetchMeta(videoUrl) {
-        const params = new URLSearchParams({ apikey: this.apikey, url: videoUrl});
-        const url = `${this.base}?${params.toString()}`;
-        const { data} = await axios.get(url, {
-            timeout: 20000,
-            headers: {
-                'user-agent': 'Mozilla/5.0',
-                accept: 'application/json'
+// 🌸 Retry Wrapper
+async function tryRequest(getter, attempts = 3) {
+    let lastError;
+    for (let i = 1; i <= attempts; i++) {
+        try {
+            return await getter();
+} catch (err) {
+            lastError = err;
+            if (i < attempts) await new Promise(r => setTimeout(r, 1000 * i));
 }
-});
-        return data;
 }
-};
+    throw lastError;
+}
 
+// 🌸 Izumi Downloader
+async function getIzumiVideoByUrl(youtubeUrl) {
+    const apiUrl = `${izumi.baseURL}/downloader/youtube?url=${encodeURIComponent(youtubeUrl)}&format=720`;
+    const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
+    if (res?.data?.result?.download) return res.data.result;
+    throw new Error('Izumi video API returned no download link');
+}
+
+// 🌸 Okatsu Fallback
+async function getOkatsuVideoByUrl(youtubeUrl) {
+    const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
+    const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
+    if (res?.data?.result?.mp4) {
+        return {
+            download: res.data.result.mp4,
+            title: res.data.result.title
+};
+}
+    throw new Error('Okatsu API returned no mp4 link');
+}
+
+// 🌸 Main Command Handler
 async function videoCommand(sock, chatId, message) {
     try {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
@@ -43,19 +59,12 @@ async function videoCommand(sock, chatId, message) {
 
         if (!searchQuery) {
             await sock.sendMessage(chatId, {
-                text:
-`╭──〔 ❌ ᴍɪssɪɴɢ ǫᴜᴇʀʏ 〕──
-│
-├─ ᴡʜᴀᴛ ᴠɪᴅᴇᴏ ᴅᴏ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ?
-│   ᴇxᴀᴍᴘʟᴇ: *.video never gonna give you up*
-│
-╰──〔 📹 ᴊɪɴᴜ-ɪɪ ᴠɪᴅᴇᴏ ᴅʟ 〕──`,
-                quoted: message,
-...channelInfo
-});
+                text: `╭──〔 ❓ ᴍɪssɪɴɢ ǫᴜᴇʀʏ 〕──\n│\n├─ ᴘʟᴇᴀsᴇ ᴛʏᴘᴇ ᴀ ᴠɪᴅᴇᴏ ɴᴀᴍᴇ ᴏʀ ʏᴏᴜᴛᴜʙᴇ ʟɪɴᴋ.\n╰──〔 ⚙️ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴊɪɴᴜ-ɪɪ 〕──`
+}, { quoted: message});
             return;
 }
 
+        // 🌸 Determine YouTube URL or Search
         let videoUrl = '';
         let videoTitle = '';
         let videoThumbnail = '';
@@ -66,108 +75,62 @@ async function videoCommand(sock, chatId, message) {
             const { videos} = await yts(searchQuery);
             if (!videos || videos.length === 0) {
                 await sock.sendMessage(chatId, {
-                    text:
-`╭──〔 ❌ ɴᴏ ʀᴇsᴜʟᴛs 〕──
-│
-├─ ɴᴏ ᴠɪᴅᴇᴏs ꜰᴏᴜɴᴅ ꜰᴏʀ: *${searchQuery}*
-│
-╰──〔 📹 ᴊɪɴᴜ-ɪɪ ᴠɪᴅᴇᴏ ᴅʟ 〕──`,
-                    quoted: message,
-...channelInfo
-});
+                    text: `╭──〔 🔍 ɴᴏ ʀᴇsᴜʟᴛs 〕──\n│\n├─ ɴᴏ ᴠɪᴅᴇᴏs ғᴏᴜɴᴅ ғᴏʀ: *${searchQuery}*\n╰──〔 ⚙️ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴊɪɴᴜ-ɪɪ 〕──`
+}, { quoted: message});
                 return;
 }
-            videoUrl = videos[0].url;
-            videoTitle = videos[0].title;
-            videoThumbnail = videos[0].thumbnail;
+            const topVideo = videos[0];
+            videoUrl = topVideo.url;
+            videoTitle = topVideo.title;
+            videoThumbnail = topVideo.thumbnail;
 }
 
-        const ytId = (videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
-        const thumb = videoThumbnail || (ytId? `https://i.ytimg.com/vi/${ytId}/sddefault.jpg`: undefined);
-        const captionTitle = videoTitle || searchQuery;
-
-        if (thumb) {
-            await sock.sendMessage(chatId, {
-                image: { url: thumb},
-                caption: `*${captionTitle}*\n⏳ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ...`,
-                quoted: message,
-...channelInfo
-});
-}
-
-        const urls = videoUrl.match(/(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch\?v=|v\/|embed\/|shorts\/|playlist\?list=)?)([a-zA-Z0-9_-]{11})/gi);
-        if (!urls) {
-            await sock.sendMessage(chatId, {
-                text:
-`╭──〔 ❌ ɪɴᴠᴀʟɪᴅ ʟɪɴᴋ 〕──
-│
-├─ ᴛʜɪs ɪs ɴᴏᴛ ᴀ ᴠᴀʟɪᴅ ʏᴏᴜᴛᴜʙᴇ ᴠɪᴅᴇᴏ ʟɪɴᴋ.
-│
-╰──〔 📹 ᴊɪɴᴜ-ɪɪ ᴠɪᴅᴇᴏ ᴅʟ 〕──`,
-                quoted: message,
-...channelInfo
-});
-            return;
-}
-
-        let videoDownloadUrl = '';
-        let title = '';
+        // 🌸 Send Thumbnail Preview
         try {
-            const meta = await princeVideoApi.fetchMeta(videoUrl);
- if (meta?.success && meta?.result?.download_url) {
-                videoDownloadUrl = meta.result.download_url;
-                title = meta.result.title || 'video';
-} else {
+            const ytId = (videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
+            const thumb = videoThumbnail || (ytId? `https://i.ytimg.com/vi/${ytId}/sddefault.jpg`: undefined);
+            const caption = `*${videoTitle || searchQuery}*\nDownloading...`;
+            if (thumb) {
                 await sock.sendMessage(chatId, {
-                    text: '❌ Failed to fetch video from the API.',
-                    quoted: message,
-...channelInfo
-});
-                return;
+                    image: { url: thumb},
+                    caption
+}, { quoted: message});
 }
-} catch (e) {
-            console.error('[VIDEO] API error:', e?.message || e);
-            await sock.sendMessage(chatId, {
-                text: '❌ Failed to fetch video from the API.',
-                quoted: message,
-...channelInfo
-});
-            return;
-}
-
-        const filename = `${title}.mp4`;
-
-        try {
-            await sock.sendMessage(chatId, {
-                video: { url: videoDownloadUrl},
-                mimetype: 'video/mp4',
-                fileName: filename,
-                caption: `*${title}*\n\n> *_ᴅᴏᴡɴʟᴏᴀᴅᴇᴅ ʙʏ ᴊɪɴᴜ-ɪɪ_*`,
-                quoted: message,
-...channelInfo
-});
-            return;
 } catch (err) {
-            console.log('[VIDEO] Direct send failed, fallback initiated.');
+            console.error('[VIDEO] Thumbnail error:', err?.message || err);
 }
 
-        // Fallback logic continues as in your original code...
-        // (Download, convert, send buffer, cleanup — all wrapped in JINU-II styled messages)
+        // 🌸 Validate YouTube URL
+const validUrl = videoUrl.match(/(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch\?v=|v\/|embed\/|shorts\/|playlist\?list=)?)([a-zA-Z0-9_-]{11})/gi);
+        if (!validUrl) {
+            await sock.sendMessage(chatId, {
+                text: `╭──〔 ⚠️ ɪɴᴠᴀʟɪᴅ ʟɪɴᴋ 〕──\n│\n├─ ᴛʜɪs ɪs ɴᴏᴛ ᴀ ᴠᴀʟɪᴅ ʏᴏᴜᴛᴜʙᴇ ᴜʀʟ.\n╰──〔 ⚙️ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴊɪɴᴜ-ɪɪ 〕──`
+}, { quoted: message});
+            return;
+}
 
-        // For brevity, I’ll stop here — but if you want the full fallback logic styled too, just say the word and I’ll wrap it all in JINU-II armor.
+        // 🌸 Try Izumi, fallback to Okatsu
+        let videoData;
+        try {
+            videoData = await getIzumiVideoByUrl(videoUrl);
+} catch (err) {
+            console.warn('[VIDEO] Izumi failed, trying Okatsu...');
+            videoData = await getOkatsuVideoByUrl(videoUrl);
+}
+
+        // 🌸 Send Video
+        await sock.sendMessage(chatId, {
+            video: { url: videoData.download},
+            mimetype: 'video/mp4',
+            fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
+            caption: `╭──〔 🎬 ᴅᴏᴡɴʟᴏᴀᴅ ᴄᴏᴍᴘʟᴇᴛᴇ 〕──\n│\n├─ *${videoData.title || videoTitle || 'Video'}*\n╰──〔 ⚙️ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴊɪɴᴜ-ɪɪ 〕──`
+}, { quoted: message});
 
 } catch (error) {
         console.error('[VIDEO] Command Error:', error?.message || error);
         await sock.sendMessage(chatId, {
-            text:
-`╭──〔 ❌ ᴅᴏᴡɴʟᴏᴀᴅ ꜰᴀɪʟᴇᴅ 〕──
-│
-├─ ${error?.message || 'ᴜɴᴋɴᴏᴡɴ ᴇʀʀᴏʀ'}
-│
-╰──〔 📹 ᴊɪɴᴜ-ɪɪ ᴠɪᴅᴇᴏ ᴅʟ 〕──`,
-            quoted: message,
-...channelInfo
-});
+            text: `╭──〔 ⚠️ ᴇʀʀᴏʀ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ 〕──\n│\n├─ ${error?.message || 'ᴜɴᴋɴᴏᴡɴ ᴇʀʀᴏʀ ᴏᴄᴄᴜʀʀᴇᴅ'}\n╰──〔 ⚙️ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴊɪɴᴜ-ɪɪ 〕──`
+}, { quoted: message});
 }
 }
 
