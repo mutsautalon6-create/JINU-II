@@ -15,7 +15,7 @@ SKARTA23 is a multi-device WhatsApp bot built using the Baileys library. Created
   </a>
 
   <!-- MY IMAGE -->
-  <a href=https://ibb.co/fY5Btjxw><img src="https://i.ibb.co/V8YSzRx/my image.jpg" alt="my image" border="0"></a>
+  <a href=https://ibb.co/fY5Btjxw><img [src="https://ibb.co/fY5Btjxw/my] image.jpg" alt="my image" border="0"></a>
 </div>
 ---
 
