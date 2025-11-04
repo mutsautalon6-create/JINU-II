@@ -1,12 +1,12 @@
 
-## 🤖Talon SKARTA23 Whatsapp bot
+## SKARTA23 Whatsapp bot
 
 SKARTA23 is a multi-device WhatsApp bot built using the Baileys library. Created by TALON MUTSAU, it empowers group admins with automation, moderation, and interactive tools to keep WhatsApp communities buzzing.
 
 <div align="center">
   <!-- First Typing SVG with updated font -->
   <a href="https://git.io/typing-svg">
-    <img src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=50&pause=1000&color=00FF99&center=true&width=910&height=100&lines=SKARTA23-II+WhatsApp+Bot;Multi+Device+Support;Created+by+TALON+MUTSAU" alt="Typing SVG" />
+    <img src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=50&pause=1000&color=00FF99&center=true&width=910&height=100&lines=JINU-II+WhatsApp+Bot;Multi+Device+Support;Created+by+TALON+MUTSAU" alt="Typing SVG" />
   </a>
 
   <!-- Second Typing SVG -->
